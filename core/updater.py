@@ -4,6 +4,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timedelta
 
 from core.version import VERSION
 
@@ -66,11 +67,19 @@ def prepare_update_script(new_exe_path: str):
     Does not exit the process itself - the caller must quit the Qt app from the
     main thread afterwards so the batch script (which waits for our exe to stop
     running) can complete the swap and relaunch.
+
+    The script is launched via a one-off Scheduled Task instead of a plain child
+    process: PyInstaller onefile builds run inside a Windows Job Object that kills
+    all child processes the moment the main exe exits, so a normal subprocess
+    (even with DETACHED_PROCESS/CREATE_BREAKAWAY_FROM_JOB) can get killed before
+    it finishes. A task launched by the Task Scheduler service runs completely
+    outside our process tree and survives.
     """
     current_exe = sys.executable
     process_name = os.path.basename(current_exe)
     base_dir = os.path.dirname(current_exe)
     script_path = os.path.join(base_dir, "_update.bat")
+    task_name = "UtilitarioDeRedeUpdate"
 
     script = (
         "@echo off\r\n"
@@ -82,17 +91,24 @@ def prepare_update_script(new_exe_path: str):
         ")\r\n"
         f'move /y "{new_exe_path}" "{current_exe}"\r\n'
         f'start "" "{current_exe}"\r\n'
+        f'schtasks /delete /tn "{task_name}" /f\r\n'
         'del "%~f0"\r\n'
     )
     with open(script_path, "w", encoding="utf-8") as f:
         f.write(script)
 
-    subprocess.Popen(
-        ["cmd", "/c", script_path],
-        creationflags=(
-            subprocess.CREATE_NEW_PROCESS_GROUP
-            | subprocess.DETACHED_PROCESS
-            | subprocess.CREATE_BREAKAWAY_FROM_JOB
-        ),
-        cwd=base_dir,
+    start_time = (datetime.now() + timedelta(minutes=2)).strftime("%H:%M")
+    subprocess.run(
+        [
+            "schtasks", "/create", "/tn", task_name,
+            "/tr", f'cmd /c "{script_path}"',
+            "/sc", "once", "/st", start_time, "/f",
+        ],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        check=True,
+    )
+    subprocess.run(
+        ["schtasks", "/run", "/tn", task_name],
+        creationflags=subprocess.CREATE_NO_WINDOW,
+        check=True,
     )
