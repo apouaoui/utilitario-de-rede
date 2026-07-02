@@ -1,6 +1,6 @@
 venv/
-build/
-dist/
+build*/
+dist*/
 __pycache__/
 *.pyc
 *.json
