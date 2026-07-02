@@ -2,9 +2,10 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 
 
-def run_powershell_json(command: str):
+def _run_powershell_json_once(command: str):
     fd, path = tempfile.mkstemp(suffix=".json")
     os.close(fd)
     try:
@@ -26,3 +27,15 @@ def run_powershell_json(command: str):
             os.remove(path)
         except OSError:
             pass
+
+
+def run_powershell_json(command: str, retries: int = 2, retry_delay: float = 1.0):
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            return _run_powershell_json_once(command)
+        except RuntimeError as exc:
+            last_error = exc
+            if attempt < retries:
+                time.sleep(retry_delay)
+    raise last_error
