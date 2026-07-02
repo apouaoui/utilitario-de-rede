@@ -77,7 +77,7 @@ def prepare_update_script(new_exe_path: str):
         ":wait\r\n"
         f'tasklist /FI "IMAGENAME eq {process_name}" 2>NUL | find /I "{process_name}" >NUL\r\n'
         'if "%ERRORLEVEL%"=="0" (\r\n'
-        "    timeout /t 1 /nobreak > nul\r\n"
+        "    ping -n 2 127.0.0.1 > nul\r\n"
         "    goto wait\r\n"
         ")\r\n"
         f'move /y "{new_exe_path}" "{current_exe}"\r\n'
@@ -89,6 +89,10 @@ def prepare_update_script(new_exe_path: str):
 
     subprocess.Popen(
         ["cmd", "/c", script_path],
-        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+        creationflags=(
+            subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.DETACHED_PROCESS
+            | subprocess.CREATE_BREAKAWAY_FROM_JOB
+        ),
         cwd=base_dir,
     )
