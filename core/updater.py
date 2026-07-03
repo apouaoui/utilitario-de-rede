@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -16,16 +17,29 @@ def _parse_version(value: str):
     return tuple(int(part) for part in value.split("."))
 
 
-def check_for_update():
+def _fetch_latest_release(retries: int = 2, retry_delay: float = 2.0):
     url = f"https://api.github.com/repos/{REPO}/releases/latest"
     request = urllib.request.Request(url, headers={"Accept": "application/vnd.github+json"})
-    try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            release = json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return None
-        raise
+    last_error = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return None
+            last_error = exc
+        except urllib.error.URLError as exc:
+            last_error = exc
+        if attempt < retries:
+            time.sleep(retry_delay)
+    raise last_error
+
+
+def check_for_update():
+    release = _fetch_latest_release()
+    if release is None:
+        return None
 
     latest_version = release.get("tag_name", "")
     if not latest_version or _parse_version(latest_version) <= _parse_version(VERSION):
