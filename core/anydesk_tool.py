@@ -15,6 +15,24 @@ def _kill_anydesk():
     )
 
 
+def _stop_service():
+    subprocess.run(
+        ["net", "stop", "AnyDesk"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
+def _start_service():
+    subprocess.run(
+        ["net", "start", "AnyDesk"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        creationflags=subprocess.CREATE_NO_WINDOW,
+    )
+
+
 def _find_msi_installers() -> list:
     user_profile = os.environ.get("USERPROFILE", "")
     search_dirs = [
@@ -35,7 +53,11 @@ def _find_msi_installers() -> list:
 
 
 def clear_anydesk_data() -> list:
+    admin = is_admin()
+
     _kill_anydesk()
+    if admin:
+        _stop_service()
     time.sleep(1)
 
     cleared = []
@@ -47,7 +69,7 @@ def clear_anydesk_data() -> list:
             shutil.rmtree(path)
             cleared.append(path)
 
-    if is_admin():
+    if admin:
         programdata = os.environ.get("PROGRAMDATA", r"C:\ProgramData")
         path = os.path.join(programdata, "AnyDesk")
         if os.path.isdir(path):
@@ -57,5 +79,8 @@ def clear_anydesk_data() -> list:
     for msi_path in _find_msi_installers():
         os.remove(msi_path)
         cleared.append(msi_path)
+
+    if admin:
+        _start_service()
 
     return cleared

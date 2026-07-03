@@ -3,6 +3,7 @@ import logging
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import (
     QGroupBox,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.admin_utils import is_admin, relaunch_as_admin
 from core.anydesk_tool import clear_anydesk_data
 
 logger = logging.getLogger(__name__)
@@ -38,23 +40,45 @@ class UtilitiesTab(QWidget):
         super().__init__()
         self._worker = None
 
+        self.admin_label = QLabel()
+        self.admin_button = QPushButton("Reiniciar como Administrador")
+        self.admin_button.clicked.connect(relaunch_as_admin)
+        self._update_admin_status()
+
         self.clear_anydesk_button = QPushButton("Limpar Dados do AnyDesk")
         self.clear_anydesk_button.clicked.connect(self._clear_anydesk)
 
         self.status_label = QLabel("")
 
+        admin_layout = QHBoxLayout()
+        admin_layout.addWidget(self.admin_label)
+        admin_layout.addWidget(self.admin_button)
+
         anydesk_group = QGroupBox("AnyDesk")
         anydesk_layout = QVBoxLayout(anydesk_group)
         anydesk_layout.addWidget(QLabel(
-            "Fecha o AnyDesk (se estiver aberto) e apaga as configurações salvas, "
-            "gerando um novo ID na próxima vez que abrir."
+            "Fecha o AnyDesk (e o serviço, se houver), apaga as configurações salvas "
+            "(incluindo dados do serviço em ProgramData, quando administrador) e "
+            "instaladores .msi perdidos, gerando um novo ID na próxima vez que abrir."
         ))
         anydesk_layout.addWidget(self.clear_anydesk_button)
 
         layout = QVBoxLayout(self)
+        layout.addLayout(admin_layout)
         layout.addWidget(anydesk_group)
         layout.addWidget(self.status_label)
         layout.addStretch()
+
+    def _update_admin_status(self):
+        if is_admin():
+            self.admin_label.setText("Executando como Administrador ✔")
+            self.admin_button.setVisible(False)
+        else:
+            self.admin_label.setText(
+                "⚠ Não está como Administrador — dados do serviço do AnyDesk em "
+                "ProgramData não serão removidos"
+            )
+            self.admin_button.setVisible(True)
 
     def _clear_anydesk(self):
         confirm = QMessageBox.question(
