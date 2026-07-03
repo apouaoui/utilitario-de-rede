@@ -19,6 +19,7 @@ from ui.ping_tab import PingTab
 from ui.scanner_tab import ScannerTab
 from ui.speedtest_tab import SpeedTestTab
 from ui.tracert_tab import TracertTab
+from ui.utilities_tab import UtilitiesTab
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(SpeedTestTab(), "Speed Test")
         self.tabs.addTab(IpConfigTab(), "Configurar IP")
         self.tabs.addTab(NetworkDriveTab(), "Unidades de Rede")
+        self.tabs.addTab(UtilitiesTab(), "Utilitários")
         self.setCentralWidget(self.tabs)
 
         scanner_tab.ping_requested.connect(lambda ip: self._send_to_ping(ping_tab, ip))
